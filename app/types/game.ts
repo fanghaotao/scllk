@@ -31,3 +31,8 @@ export interface GameStats {
   score: number
   completedGroups: Set<number>
 }
+
+export interface Point {
+  x: number
+  y: number
+}

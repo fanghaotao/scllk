@@ -386,48 +386,46 @@ const WordGame = () => {
 
   const handleTouchMove = (e: TouchEvent) => {
     if (!isDragging || !gameAreaRef.current) return
-    e.preventDefault() // 防止页面滚动
+    e.preventDefault()
 
     const touch = e.touches[0]
     const gameArea = gameAreaRef.current
     const gameAreaRect = gameArea.getBoundingClientRect()
 
-    // 获取触摸点相对于游戏区域的坐标
     const x = touch.clientX - gameAreaRect.left
     const y = touch.clientY - gameAreaRect.top
 
-    // 找到最近的卡片
-    const cards = gameArea.getElementsByClassName('word-card')
-    let closestCard: Element | null = null
+    const touchRadius = window.innerWidth < 640 ? 30 : 20
+
     let minDistance = Infinity
     let closestIndex = -1
 
-    Array.from(cards).forEach((card, index) => {
-      const cardRect = card.getBoundingClientRect()
+    gridLayout.grid.flat().forEach((cell, index) => {
+      if (!cell || usedCards.has(index)) return
+
+      const cardElement = document.getElementById(`card-${index}`)
+      if (!cardElement) return
+
+      const cardRect = cardElement.getBoundingClientRect()
       const cardCenterX = cardRect.left + cardRect.width / 2 - gameAreaRect.left
       const cardCenterY = cardRect.top + cardRect.height / 2 - gameAreaRect.top
-      
+
       const distance = Math.sqrt(
-        Math.pow(x - cardCenterX, 2) + 
-        Math.pow(y - cardCenterY, 2)
+        Math.pow(x - cardCenterX, 2) + Math.pow(y - cardCenterY, 2)
       )
 
-      if (distance < minDistance && !usedCards.has(index)) {
+      if (distance < touchRadius && distance < minDistance) {
         minDistance = distance
-        closestCard = card
         closestIndex = index
       }
     })
 
-    // 如果找到最近的卡片且在有效距离内
-    if (closestCard && minDistance < 50) { // 50px 的触发距离
+    if (closestIndex !== -1) {
       const lastIndex = currentPath[currentPath.length - 1]
-      if (
-        closestIndex !== lastIndex && 
-        !currentPath.includes(closestIndex) &&
-        (!lastIndex || arePositionsAdjacent(lastIndex, closestIndex))
-      ) {
-        setCurrentPath(prev => [...prev, closestIndex])
+      if (lastIndex !== closestIndex && isAdjacent(lastIndex, closestIndex)) {
+        if (!currentPath.includes(closestIndex)) {
+          setCurrentPath([...currentPath, closestIndex])
+        }
       }
     }
   }
@@ -447,6 +445,28 @@ const WordGame = () => {
 
     setCurrentPath([])
     setIsDragging(false)
+  }
+
+  // 添加 isAdjacent 函数
+  const isAdjacent = (index1: number, index2: number) => {
+    if (index1 === -1 || index2 === -1) return false
+
+    const [row1, col1] = indexToGridPosition(index1, gridLayout.cols)
+    const [row2, col2] = indexToGridPosition(index2, gridLayout.cols)
+
+    // 计算行列差值的绝对值
+    const rowDiff = Math.abs(row1 - row2)
+    const colDiff = Math.abs(col1 - col2)
+
+    // 判断是否相邻（包括斜向）
+    return rowDiff <= 1 && colDiff <= 1
+  }
+
+  // indexToGridPosition 函数（如果还没有的话）
+  const indexToGridPosition = (index: number, cols: number): [number, number] => {
+    const row = Math.floor(index / cols)
+    const col = index % cols
+    return [row, col]
   }
 
   if (loading) {
@@ -478,44 +498,43 @@ const WordGame = () => {
   const difficultySettings = getDifficultySettings()
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-6 sm:py-8">
+    <main className="min-h-screen bg-slate-100 px-2 py-4 sm:px-4 sm:py-6">
       <div className="mx-auto max-w-lg sm:max-w-2xl md:max-w-4xl">
-        <div className="rounded-lg bg-white p-4 shadow-lg sm:p-6">
-          {/* 难度选择器 */}
-          <div className="mb-6">
-            <DifficultySelector
-              currentDifficulty={settings.difficulty}
-              onDifficultyChange={updateDifficulty}
-            />
+        <div className="rounded-lg bg-white p-3 shadow-lg sm:p-6">
+          {/* 顶部控制区 - 移动端垂直布局 */}
+          <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              onClick={refreshPoem}
+              className="w-full rounded bg-blue-500 px-3 py-2 text-sm text-white hover:bg-blue-600 
+                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 
+                sm:w-auto sm:px-4 sm:text-base"
+            >
+              换一首诗
+            </button>
+            <div className="flex justify-center">
+              <DifficultySelector
+                currentDifficulty={settings.difficulty}
+                onDifficultyChange={updateDifficulty}
+              />
+            </div>
           </div>
 
-          {/* 诗句提示区域 */}
-          <div className={`mb-6 grid gap-3 sm:gap-4 ${
-            currentPoem.length <= 2 ? 'grid-cols-1' : 
-            currentPoem.length <= 4 ? 'grid-cols-2' :
-            'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
-          }`}>
-            {currentPoem.map(group => {
-              const isCompleted = gameStats.completedGroups.has(group.id)
-              return (
-                <div 
-                  key={group.id}
-                  className={`rounded-md p-2 text-center text-sm sm:text-base ${
-                    isCompleted
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  <div>{group.text}</div>
-                </div>
-              )
-            })}
-          </div>
+          {/* 诗歌标题和作者 - 调整字体大小 */}
+          {currentPoem.length > 0 && (
+            <div className="mb-4 text-center sm:mb-6">
+              <h2 className="text-lg font-semibold text-gray-800 sm:text-xl md:text-2xl">
+                {currentPoem[0].title || "无题"}
+              </h2>
+              <p className="mt-1 text-xs text-gray-600 sm:mt-2 sm:text-sm md:text-base">
+                {currentPoem[0].author || "佚名"}
+              </p>
+            </div>
+          )}
 
-          {/* 游戏区域 */}
+          {/* 游戏区域 - 调整间距和大小 */}
           <div 
             ref={gameAreaRef}
-            className="relative mb-6 touch-none rounded-lg border-2 border-dashed border-gray-200 p-2 sm:p-4"
+            className="relative mb-4 touch-none rounded-lg border-2 border-dashed border-gray-200 p-1 sm:mb-6 sm:p-4"
             onMouseLeave={handleMouseLeave}
             onMouseUp={handleMouseUp}
             onTouchMove={(e) => handleTouchMove(e as unknown as TouchEvent)}
@@ -526,7 +545,7 @@ const WordGame = () => {
               currentPath={getCurrentPathPoints()}
             />
             <div 
-              className="grid gap-2 sm:gap-4"
+              className="grid gap-1 sm:gap-2 md:gap-4"
               style={{
                 gridTemplateColumns: `repeat(${gridLayout.cols}, minmax(0, 1fr))`,
                 gridTemplateRows: `repeat(${gridLayout.rows}, minmax(0, 1fr))`
@@ -547,7 +566,7 @@ const WordGame = () => {
                     onMouseDown={() => handleMouseDown(index)}
                     onMouseEnter={() => handleMouseEnter(index)}
                     onTouchStart={() => handleTouchStart(index)}
-                    className="word-card text-base sm:text-lg md:text-xl"
+                    className="word-card text-sm sm:text-base md:text-lg"
                   />
                 ) : (
                   <div key={`empty-${index}`} className="aspect-square" />
@@ -556,14 +575,32 @@ const WordGame = () => {
             </div>
           </div>
 
-          {/* 控制按钮 */}
-          <div className="flex justify-center gap-4">
-            <button
-              onClick={refreshPoem}
-              className="rounded bg-blue-500 px-3 py-2 text-sm text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:px-4 sm:text-base"
-            >
-              换一首诗
-            </button>
+          {/* 诗句提示区域 - 调整布局和字体 */}
+          <div className="rounded-lg bg-gray-50 p-2 sm:p-4">
+            <h3 className="mb-2 text-center text-xs font-medium text-gray-700 sm:mb-3 sm:text-sm">
+              诗句提示
+            </h3>
+            <div className={`grid gap-2 sm:gap-3 md:gap-4 ${
+              currentPoem.length <= 2 ? 'grid-cols-1' : 
+              currentPoem.length <= 4 ? 'sm:grid-cols-2' :
+              'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
+            }`}>
+              {currentPoem.map(group => {
+                const isCompleted = gameStats.completedGroups.has(group.id)
+                return (
+                  <div 
+                    key={group.id}
+                    className={`rounded-md p-2 text-center text-xs sm:text-sm md:text-base ${
+                      isCompleted
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-white text-gray-600'
+                    }`}
+                  >
+                    <div>{group.text}</div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       </div>

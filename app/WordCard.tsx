@@ -27,30 +27,32 @@ const WordCard = ({
   onTouchStart,
   className = ''
 }: WordCardProps) => {
-  // 根据状态确定背景颜色
+  // 获取背景颜色
   const getBackgroundColor = () => {
-    if (isUsed) return 'bg-green-100 text-green-800'
-    if (isSelected) return 'bg-blue-100 text-blue-800'
-    if (showHint) return 'bg-yellow-50 text-yellow-800'
-    return 'bg-white text-gray-800'
+    if (isUsed) return 'bg-gray-100'
+    if (isSelected) return 'bg-blue-100'
+    return 'bg-white'
   }
 
-  // 根据状态确定边框样式
+  // 获取边框样式
   const getBorderStyle = () => {
-    if (isUsed) return 'border-green-200'
-    if (isSelected) return 'border-blue-200'
-    if (showHint) return 'border-yellow-200'
-    return 'border-gray-200'
+    if (isUsed) return 'border-gray-300'
+    if (isSelected) return 'border-blue-400'
+    return 'border-gray-200 hover:border-blue-300'
   }
 
   return (
     <div
       id={id}
-      className={`word-card aspect-square cursor-pointer rounded-lg border-2 p-2 
-        transition-all duration-200 ${getBackgroundColor()} ${getBorderStyle()} 
+      className={`relative flex aspect-square cursor-pointer items-center justify-center rounded-lg 
+        border-2 p-2 transition-all duration-200 
+        ${getBackgroundColor()} ${getBorderStyle()} 
         ${isUsed ? 'cursor-not-allowed opacity-50' : 'hover:scale-105'} 
         ${className}`}
-      onMouseDown={onMouseDown}
+      onMouseDown={(e) => {
+        e.preventDefault()
+        onMouseDown?.()
+      }}
       onMouseEnter={onMouseEnter}
       onTouchStart={(e) => {
         e.preventDefault()
@@ -58,32 +60,26 @@ const WordCard = ({
       }}
     >
       {/* 主要字符 */}
-      <div className="flex h-full items-center justify-center">
-        <span className="text-2xl font-medium">{character}</span>
-      </div>
+      <span className="text-center text-gray-800">{character}</span>
 
-      {/* 顺序提示 - 仅在 showOrder 为 true 且未使用时显示 */}
-      {showOrder && !isUsed && (
+      {/* 顺序提示 */}
+      {showOrder && (
         <div className="absolute left-1 top-1">
-          <span className="text-xs text-gray-400">{orderInGroup + 1}</span>
+          <span className="text-xs text-gray-500">{orderInGroup + 1}</span>
         </div>
       )}
 
-      {/* 首字提示 - 仅在 showHint 为 true 且未使用时显示 */}
-      {/* {showHint && !isUsed && (
+      {/* 首字提示 */}
+      {showHint && orderInGroup === 0 && (
         <div className="absolute right-1 top-1">
-          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-yellow-100 text-[10px] text-yellow-800">
-            首
-          </span>
+          <span className="text-xs text-blue-500">首</span>
         </div>
-      )} */}
+      )}
 
       {/* 已使用标记 */}
       {isUsed && (
         <div className="absolute right-1 top-1">
-          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-green-100 text-[10px] text-green-800">
-            ✓
-          </span>
+          <span className="text-xs text-green-500">✓</span>
         </div>
       )}
 
