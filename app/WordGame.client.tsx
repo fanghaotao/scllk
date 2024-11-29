@@ -472,7 +472,6 @@ const WordGame = () => {
                     showOrder={difficultySettings.showOrder}
                     onMouseDown={() => handleMouseDown(index)}
                     onMouseEnter={() => handleMouseEnter(index)}
-                    className="text-base sm:text-lg md:text-xl"
                   />
                 ) : (
                   <div key={`empty-${index}`} className="aspect-square" />

@@ -585,7 +585,6 @@ const WordGame = () => {
                   character={charData.char}
                   groupId={charData.groupId}
                   orderInGroup={charData.orderInGroup}
-                  difficulty={settings.difficulty}
                   isSelected={currentPath.includes(index)}
                   isUsed={usedCards.has(index)}
                   onMouseDown={() => handleMouseDown(index)}
