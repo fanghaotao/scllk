@@ -386,48 +386,46 @@ const WordGame = () => {
 
   const handleTouchMove = (e: TouchEvent) => {
     if (!isDragging || !gameAreaRef.current) return
-    e.preventDefault() // 防止页面滚动
+    e.preventDefault()
 
     const touch = e.touches[0]
     const gameArea = gameAreaRef.current
     const gameAreaRect = gameArea.getBoundingClientRect()
 
-    // 获取触摸点相对于游戏区域的坐标
     const x = touch.clientX - gameAreaRect.left
     const y = touch.clientY - gameAreaRect.top
 
-    // 找到最近的卡片
-    const cards = gameArea.getElementsByClassName('word-card')
-    let closestCard: Element | null = null
+    const touchRadius = window.innerWidth < 640 ? 30 : 20
+
     let minDistance = Infinity
     let closestIndex = -1
 
-    Array.from(cards).forEach((card, index) => {
-      const cardRect = card.getBoundingClientRect()
+    gridLayout.grid.flat().forEach((cell, index) => {
+      if (!cell || usedCards.has(index)) return
+
+      const cardElement = document.getElementById(`card-${index}`)
+      if (!cardElement) return
+
+      const cardRect = cardElement.getBoundingClientRect()
       const cardCenterX = cardRect.left + cardRect.width / 2 - gameAreaRect.left
       const cardCenterY = cardRect.top + cardRect.height / 2 - gameAreaRect.top
-      
+
       const distance = Math.sqrt(
-        Math.pow(x - cardCenterX, 2) + 
-        Math.pow(y - cardCenterY, 2)
+        Math.pow(x - cardCenterX, 2) + Math.pow(y - cardCenterY, 2)
       )
 
-      if (distance < minDistance && !usedCards.has(index)) {
+      if (distance < touchRadius && distance < minDistance) {
         minDistance = distance
-        closestCard = card
         closestIndex = index
       }
     })
 
-    // 如果找到最近的卡片且在有效距离内
-    if (closestCard && minDistance < 50) { // 50px 的触发距离
+    if (closestIndex !== -1) {
       const lastIndex = currentPath[currentPath.length - 1]
-      if (
-        closestIndex !== lastIndex && 
-        !currentPath.includes(closestIndex) &&
-        (!lastIndex || arePositionsAdjacent(lastIndex, closestIndex))
-      ) {
-        setCurrentPath(prev => [...prev, closestIndex])
+      if (lastIndex !== closestIndex && isAdjacent(lastIndex, closestIndex)) {
+        if (!currentPath.includes(closestIndex)) {
+          setCurrentPath([...currentPath, closestIndex])
+        }
       }
     }
   }
@@ -447,6 +445,28 @@ const WordGame = () => {
 
     setCurrentPath([])
     setIsDragging(false)
+  }
+
+  // 添加 isAdjacent 函数
+  const isAdjacent = (index1: number, index2: number) => {
+    if (index1 === -1 || index2 === -1) return false
+
+    const [row1, col1] = indexToGridPosition(index1, gridLayout.cols)
+    const [row2, col2] = indexToGridPosition(index2, gridLayout.cols)
+
+    // 计算行列差值的绝对值
+    const rowDiff = Math.abs(row1 - row2)
+    const colDiff = Math.abs(col1 - col2)
+
+    // 判断是否相邻（包括斜向）
+    return rowDiff <= 1 && colDiff <= 1
+  }
+
+  // indexToGridPosition 函数（如果还没有的话）
+  const indexToGridPosition = (index: number, cols: number): [number, number] => {
+    const row = Math.floor(index / cols)
+    const col = index % cols
+    return [row, col]
   }
 
   if (loading) {

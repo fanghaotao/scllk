@@ -14,18 +14,20 @@ export const calculateOptimalGrid = (words: WordGroup[]): GridLayout => {
   }
 
   const getGridDimensions = (total: number) => {
-    const sqrt = Math.sqrt(total)
-    const rows = Math.ceil(sqrt)
-    const cols = Math.ceil(total / rows)
-    return { rows, cols }
+    const isMobile = typeof window !== 'undefined' ? window.innerWidth < 640 : false
+    const maxCols = isMobile ? 4 : 5
+    const minCols = 3
+    const cols = Math.max(minCols, Math.min(maxCols, Math.ceil(Math.sqrt(total))))
+    const rows = Math.ceil(total / cols)
+    return { rows, cols, isMobile }
   }
 
-  const { rows: initialRows, cols } = getGridDimensions(totalWords)
+  const { rows: initialRows, cols, isMobile } = getGridDimensions(totalWords)
   
-  const grid: (WordGroup | null)[][] = []
-  for (let i = 0; i < initialRows; i++) {
-    grid[i] = Array(cols).fill(null)
-  }
+  const grid: (WordGroup | null)[][] = Array.from(
+    { length: initialRows + 1 },
+    () => Array(cols).fill(null)
+  )
 
   const groupedWords = words.reduce((acc, word) => {
     if (!acc[word.groupId]) {
@@ -34,6 +36,10 @@ export const calculateOptimalGrid = (words: WordGroup[]): GridLayout => {
     acc[word.groupId].push(word)
     return acc
   }, {} as Record<number, WordGroup[]>)
+
+  Object.values(groupedWords).forEach(group => {
+    group.sort((a, b) => a.orderInGroup - b.orderInGroup)
+  })
 
   let currentRow = 0
   let currentCol = 0
@@ -44,16 +50,13 @@ export const calculateOptimalGrid = (words: WordGroup[]): GridLayout => {
       currentCol = 0
     }
 
-    if (currentRow >= grid.length) {
-      const newRow = Array(cols).fill(null)
-      grid.push(newRow)
+    while (currentRow >= grid.length) {
+      grid.push(Array(cols).fill(null))
     }
 
     group.forEach(word => {
-      if (currentRow < grid.length && currentCol < cols) {
-        grid[currentRow][currentCol] = word
-        currentCol++
-      }
+      grid[currentRow][currentCol] = word
+      currentCol++
     })
 
     currentCol++
@@ -63,9 +66,19 @@ export const calculateOptimalGrid = (words: WordGroup[]): GridLayout => {
     }
   })
 
+  const finalGrid = grid.map(row => {
+    const newRow = Array(cols).fill(null)
+    row.forEach((cell, index) => {
+      if (index < cols) {
+        newRow[index] = cell
+      }
+    })
+    return newRow
+  })
+
   return {
-    grid,
-    rows: grid.length,
+    grid: finalGrid,
+    rows: finalGrid.length,
     cols
   }
 }
