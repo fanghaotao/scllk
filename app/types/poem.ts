@@ -17,6 +17,8 @@ export interface WordGroup {
     id: number
     text: string
     words: WordGroup[]
+    title?: string
+    author?: string
   }
   
   // 组进度

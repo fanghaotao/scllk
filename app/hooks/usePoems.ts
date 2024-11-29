@@ -24,6 +24,11 @@ export const usePoems = () => {
         
         // 处理诗词文本
         const processedGroups = processPoem(selectedPoem.text)
+        // 为每个组添加标题和作者信息
+        processedGroups.forEach(group => {
+          group.title = selectedPoem.title || ''
+          group.author = selectedPoem.author || ''
+        })
         setCurrentPoem(processedGroups)
         setLoading(false)
       } catch (err) {
@@ -48,6 +53,11 @@ export const usePoems = () => {
       const poems: PoemData[] = data
       const selectedPoem = getRandomPoem(poems)
       const processedGroups = processPoem(selectedPoem.text)
+            // 为每个组添加标题和作者信息
+      processedGroups.forEach(group => {
+        group.title = selectedPoem.title || ''
+        group.author = selectedPoem.author || ''
+      })
       setCurrentPoem(processedGroups)
       setLoading(false)
     } catch (err) {
