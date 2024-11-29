@@ -377,6 +377,78 @@ const WordGame = () => {
     })
   }
 
+  // 添加触摸事件处理
+  const handleTouchStart = (index: number) => {
+    if (usedCards.has(index)) return
+    setIsDragging(true)
+    setCurrentPath([index])
+  }
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (!isDragging || !gameAreaRef.current) return
+    e.preventDefault() // 防止页面滚动
+
+    const touch = e.touches[0]
+    const gameArea = gameAreaRef.current
+    const gameAreaRect = gameArea.getBoundingClientRect()
+
+    // 获取触摸点相对于游戏区域的坐标
+    const x = touch.clientX - gameAreaRect.left
+    const y = touch.clientY - gameAreaRect.top
+
+    // 找到最近的卡片
+    const cards = gameArea.getElementsByClassName('word-card')
+    let closestCard: Element | null = null
+    let minDistance = Infinity
+    let closestIndex = -1
+
+    Array.from(cards).forEach((card, index) => {
+      const cardRect = card.getBoundingClientRect()
+      const cardCenterX = cardRect.left + cardRect.width / 2 - gameAreaRect.left
+      const cardCenterY = cardRect.top + cardRect.height / 2 - gameAreaRect.top
+      
+      const distance = Math.sqrt(
+        Math.pow(x - cardCenterX, 2) + 
+        Math.pow(y - cardCenterY, 2)
+      )
+
+      if (distance < minDistance && !usedCards.has(index)) {
+        minDistance = distance
+        closestCard = card
+        closestIndex = index
+      }
+    })
+
+    // 如果找到最近的卡片且在有效距离内
+    if (closestCard && minDistance < 50) { // 50px 的触发距离
+      const lastIndex = currentPath[currentPath.length - 1]
+      if (
+        closestIndex !== lastIndex && 
+        !currentPath.includes(closestIndex) &&
+        (!lastIndex || arePositionsAdjacent(lastIndex, closestIndex))
+      ) {
+        setCurrentPath(prev => [...prev, closestIndex])
+      }
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+
+    if (validatePath(currentPath) && checkCompleteGroup(currentPath)) {
+      const firstIndex = currentPath[0]
+      const [row, col] = indexToGridPosition(firstIndex, gridLayout.cols)
+      const firstWord = gridLayout.grid[row][col]
+      
+      if (firstWord) {
+        handleConnectionComplete(currentPath, firstWord.groupId)
+      }
+    }
+
+    setCurrentPath([])
+    setIsDragging(false)
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100">
@@ -443,9 +515,11 @@ const WordGame = () => {
           {/* 游戏区域 */}
           <div 
             ref={gameAreaRef}
-            className="relative mb-6 rounded-lg border-2 border-dashed border-gray-200 p-2 sm:p-4"
+            className="relative mb-6 touch-none rounded-lg border-2 border-dashed border-gray-200 p-2 sm:p-4"
             onMouseLeave={handleMouseLeave}
             onMouseUp={handleMouseUp}
+            onTouchMove={(e) => handleTouchMove(e as unknown as TouchEvent)}
+            onTouchEnd={handleTouchEnd}
           >
             <LineCanvas 
               lines={connections.map(conn => [conn.startPoint, conn.endPoint])}
@@ -472,6 +546,8 @@ const WordGame = () => {
                     showOrder={difficultySettings.showOrder}
                     onMouseDown={() => handleMouseDown(index)}
                     onMouseEnter={() => handleMouseEnter(index)}
+                    onTouchStart={() => handleTouchStart(index)}
+                    className="word-card text-base sm:text-lg md:text-xl"
                   />
                 ) : (
                   <div key={`empty-${index}`} className="aspect-square" />

@@ -9,6 +9,8 @@ interface WordCardProps {
   showOrder?: boolean
   onMouseDown?: () => void
   onMouseEnter?: () => void
+  onTouchStart?: () => void
+  className?: string
 }
 
 const WordCard = ({
@@ -21,7 +23,9 @@ const WordCard = ({
   showHint = false,
   showOrder = false,
   onMouseDown,
-  onMouseEnter
+  onMouseEnter,
+  onTouchStart,
+  className = ''
 }: WordCardProps) => {
   // 根据状态确定背景颜色
   const getBackgroundColor = () => {
@@ -42,16 +46,16 @@ const WordCard = ({
   return (
     <div
       id={id}
-      className={`
-        relative aspect-square w-full cursor-pointer select-none rounded-lg
-        border-2 p-2 shadow-sm transition-all duration-200
-        hover:shadow-md
-        ${getBackgroundColor()}
-        ${getBorderStyle()}
-        ${isUsed ? 'cursor-default' : 'hover:scale-105'}
-      `}
-      onMouseDown={!isUsed ? onMouseDown : undefined}
-      onMouseEnter={!isUsed ? onMouseEnter : undefined}
+      className={`word-card aspect-square cursor-pointer rounded-lg border-2 p-2 
+        transition-all duration-200 ${getBackgroundColor()} ${getBorderStyle()} 
+        ${isUsed ? 'cursor-not-allowed opacity-50' : 'hover:scale-105'} 
+        ${className}`}
+      onMouseDown={onMouseDown}
+      onMouseEnter={onMouseEnter}
+      onTouchStart={(e) => {
+        e.preventDefault()
+        onTouchStart?.()
+      }}
     >
       {/* 主要字符 */}
       <div className="flex h-full items-center justify-center">
