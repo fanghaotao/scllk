@@ -1,72 +1,74 @@
 'use client'
 import { useEffect, useRef } from 'react'
+import BubbleMask from './BubbleMask'
 
 interface ScratchCardProps {
   text: string
+  maskedText: string
   isCompleted: boolean
   groupId: number
 }
 
-const ScratchCard = ({ text, isCompleted, groupId }: ScratchCardProps) => {
+const ScratchCard = ({ text, maskedText, isCompleted, groupId }: ScratchCardProps) => {
   const maskRef = useRef<HTMLDivElement>(null)
   const animationStartedRef = useRef(false)
 
   useEffect(() => {
-    console.log(`ScratchCard ${groupId} effect - isCompleted:`, isCompleted)
-
     if (isCompleted && !animationStartedRef.current && maskRef.current) {
-      console.log(`Starting animation for group ${groupId}`)
       animationStartedRef.current = true
-
-      // 添加动画类
-      maskRef.current.classList.add('animate-scratch')
-      
-      // 动画结束后移除遮罩
-      maskRef.current.addEventListener('animationend', () => {
-        console.log(`Animation completed for group ${groupId}`)
-        if (maskRef.current) {
-          maskRef.current.style.display = 'none'
-        }
-      }, { once: true })
+      maskRef.current.classList.add('animate-reveal')
     }
   }, [isCompleted, groupId])
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-md">
       {/* 背景文字 */}
-      <div 
-        className={`absolute inset-0 flex items-center justify-center bg-white p-2 text-center
-          ${isCompleted ? 'text-green-800' : 'text-gray-800'}`}
+      <div className={`absolute inset-0 flex items-center justify-center bg-white p-2 text-center
+        ${isCompleted ? 'text-green-800' : 'text-gray-800'}`}
       >
-        <span className="text-lg font-medium">{text}</span>
+        <span className="text-sm font-medium sm:text-base">{text}</span>
       </div>
       
-      {/* 遮罩层 */}
+      {/* 遮罩层文字 */}
       {!isCompleted && (
         <div 
           ref={maskRef}
-          className="absolute inset-0 bg-gray-200"
-          style={{
-            pointerEvents: 'none',
-          }}
-        />
+          className="absolute inset-0 flex items-center justify-center bg-gray-100 p-2 text-center"
+        >
+          <div className="flex items-center justify-center space-x-1">
+            {Array.from(text).map((char, index) => {
+              const shouldMask = maskedText[index] === '█'
+              return (
+                <div key={index} className="relative">
+                  {shouldMask ? (
+                    <BubbleMask char={char} isVisible={true} />
+                  ) : (
+                    <span className="text-sm font-medium text-gray-600 sm:text-base">
+                      {char}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
       )}
 
       {/* 添加动画样式 */}
       <style jsx>{`
-        @keyframes scratch {
+        @keyframes reveal {
           0% {
-            transform: translateX(0);
+            transform: translateY(0);
             opacity: 1;
           }
           100% {
-            transform: translateX(100%);
+            transform: translateY(-100%);
             opacity: 0;
           }
         }
         
-        .animate-scratch {
-          animation: scratch 1s ease-in-out forwards;
+        .animate-reveal {
+          animation: reveal 0.5s ease-out forwards;
         }
       `}</style>
     </div>

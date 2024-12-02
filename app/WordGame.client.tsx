@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { usePoems } from './hooks/usePoems'
 import { useGameSettings } from './hooks/useGameSettings'
 
@@ -10,6 +10,7 @@ import DifficultySelector from './DifficultySelector'
 import { WordGroup, ProcessedPoemGroup, GroupProgress } from './types/poem'
 import { calculateOptimalGrid, indexToGridPosition, findOptimalArrangement } from './utils/gridUtils'
 import { isCompleteGroup } from './utils/gameUtils'
+import ScratchCard from './ScratchCard'
 
 const WordGame = () => {
   const { loading, error, currentPoem, refreshPoem } = usePoems()
@@ -44,6 +45,17 @@ const WordGame = () => {
 
   // 组进度
   const [groupProgress, setGroupProgress] = useState<Map<number, GroupProgress>>(new Map())
+
+  // 生成并缓存遮罩文字
+  const maskedTexts = useMemo(() => {
+    return currentPoem.reduce((acc, group) => {
+      const maskedText = Array.from(group.text).map(char => 
+        Math.random() > 0.5 ? '█' : char
+      ).join('')
+      acc[group.id] = maskedText
+      return acc
+    }, {} as Record<number, string>)
+  }, [currentPoem]) // 只在诗词改变时重新生成
 
   useEffect(() => {
     if (currentPoem.length > 0) {
@@ -263,7 +275,7 @@ const WordGame = () => {
       })
     })
 
-    // 对每个起始位置尝试找到有效路径
+    // 对每个起始位置尝试找有效路径
     for (const start of startPositions) {
       const visited = new Set<number>([start])
       const path = [start]
@@ -501,7 +513,7 @@ const WordGame = () => {
     <main className="min-h-screen bg-slate-100 px-2 py-4 sm:px-4 sm:py-6">
       <div className="mx-auto max-w-lg sm:max-w-2xl md:max-w-4xl">
         <div className="rounded-lg bg-white p-3 shadow-lg sm:p-6">
-          {/* 顶部控制区 - 移动端垂直布局 */}
+          {/* 顶部控制区 */}
           <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
             <button
               onClick={refreshPoem}
@@ -519,19 +531,51 @@ const WordGame = () => {
             </div>
           </div>
 
-          {/* 诗歌标题和作者 - 调整字体大小 */}
+          {/* 诗歌标题、作者和提示区域 */}
           {currentPoem.length > 0 && (
-            <div className="mb-4 text-center sm:mb-6">
-              <h2 className="text-lg font-semibold text-gray-800 sm:text-xl md:text-2xl">
-                {currentPoem[0].title || "无题"}
-              </h2>
-              <p className="mt-1 text-xs text-gray-600 sm:mt-2 sm:text-sm md:text-base">
-                {currentPoem[0].author || "佚名"}
-              </p>
+            <div className="mb-4 space-y-4 sm:mb-6">
+              {/* 标题和作者 */}
+              <div className="text-center">
+                <h2 className="text-lg font-semibold text-gray-800 sm:text-xl md:text-2xl">
+                  {currentPoem[0].title || "无题"}
+                </h2>
+                <p className="mt-1 text-xs text-gray-600 sm:mt-2 sm:text-sm md:text-base">
+                  {currentPoem[0].author || "佚名"}
+                </p>
+              </div>
+
+              {/* 诗句提示区域 */}
+              <div className="rounded-lg bg-gray-50 p-2 sm:p-4">
+                <h3 className="mb-2 text-center text-xs font-medium text-gray-700 sm:mb-3 sm:text-sm">
+                  诗句提示
+                </h3>
+                <div className={`grid gap-2 sm:gap-3 md:gap-4 ${
+                  currentPoem.length <= 2 ? 'grid-cols-1' : 
+                  currentPoem.length <= 4 ? 'sm:grid-cols-2' :
+                  'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
+                }`}>
+                  {currentPoem.map(group => {
+                    const isCompleted = gameStats.completedGroups.has(group.id)
+                    return (
+                      <div 
+                        key={group.id}
+                        className="relative h-10 sm:h-12"
+                      >
+                        <ScratchCard
+                          text={group.text}
+                          isCompleted={isCompleted}
+                          groupId={group.id}
+                          maskedText={maskedTexts[group.id]}
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
-          {/* 游戏区域 - 调整间距和大小 */}
+          {/* 游戏区域 */}
           <div 
             ref={gameAreaRef}
             className="relative mb-4 touch-none rounded-lg border-2 border-dashed border-gray-200 p-1 sm:mb-6 sm:p-4"
@@ -572,34 +616,6 @@ const WordGame = () => {
                   <div key={`empty-${index}`} className="aspect-square" />
                 )
               ))}
-            </div>
-          </div>
-
-          {/* 诗句提示区域 - 调整布局和字体 */}
-          <div className="rounded-lg bg-gray-50 p-2 sm:p-4">
-            <h3 className="mb-2 text-center text-xs font-medium text-gray-700 sm:mb-3 sm:text-sm">
-              诗句提示
-            </h3>
-            <div className={`grid gap-2 sm:gap-3 md:gap-4 ${
-              currentPoem.length <= 2 ? 'grid-cols-1' : 
-              currentPoem.length <= 4 ? 'sm:grid-cols-2' :
-              'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
-            }`}>
-              {currentPoem.map(group => {
-                const isCompleted = gameStats.completedGroups.has(group.id)
-                return (
-                  <div 
-                    key={group.id}
-                    className={`rounded-md p-2 text-center text-xs sm:text-sm md:text-base ${
-                      isCompleted
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-white text-gray-600'
-                    }`}
-                  >
-                    <div>{group.text}</div>
-                  </div>
-                )
-              })}
             </div>
           </div>
         </div>
