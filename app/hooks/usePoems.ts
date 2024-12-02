@@ -11,7 +11,7 @@ export const usePoems = () => {
     const loadPoems = async () => {
       try {
         // 加载诗词数据
-        const response = await fetch('../res/ts300.json')
+        const response = await fetch('../res/gaozhong.json')
         if (!response.ok) {
           throw new Error('Failed to load poems')
         }
