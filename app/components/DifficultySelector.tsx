@@ -1,4 +1,4 @@
-import { Difficulty } from './types/game'
+import { Difficulty } from '../types/game'
 
 interface DifficultySelectorProps {
   currentDifficulty: Difficulty

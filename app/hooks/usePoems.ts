@@ -1,75 +1,104 @@
-import { useState, useEffect } from 'react'
-import { PoemData, ProcessedPoemGroup } from '../types/poem'
-import { processPoem, getRandomPoem } from '../utils/poemUtils'
+import { useState, useEffect, useCallback } from 'react'
+import { ProcessedPoemGroup } from '../types/poem'
+import { processPoem } from '../utils/poemUtils'
 
-export const usePoems = () => {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [currentPoem, setCurrentPoem] = useState<ProcessedPoemGroup[]>([])
+const POEM_FILES = {
+  elementary: '/res/xiaoxue.json',
+  middle: '/res/chuzhong.json',
+  high: '/res/gaozhong.json'
+} as const
 
-  useEffect(() => {
-    const loadPoems = async () => {
-      try {
-        // 加载诗词数据
-        const response = await fetch('../res/gaozhong.json')
-        if (!response.ok) {
-          throw new Error('Failed to load poems')
-        }
+export const usePoems = (level: keyof typeof POEM_FILES = 'elementary') => {
+  const [state, setState] = useState<{
+    loading: boolean
+    error: string | null
+    currentPoem: ProcessedPoemGroup[]
+  }>({
+    loading: true,
+    error: null,
+    currentPoem: []
+  })
 
-        const data = await response.json()
-        const poems: PoemData[] = data
-        
-        // 随机选择一首诗
-        const selectedPoem = getRandomPoem(poems)
-        
-        // 处理诗词文本
-        const processedGroups = processPoem(selectedPoem.text)
-        // 为每个组添加标题和作者信息
-        processedGroups.forEach(group => {
-          group.title = selectedPoem.title || ''
-          group.author = selectedPoem.author || ''
-        })
-        setCurrentPoem(processedGroups)
-        setLoading(false)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load poems')
-        setLoading(false)
-      }
-    }
+  const loadPoemData = useCallback(async () => {
+    setState(prev => ({ ...prev, loading: true, error: null }))
 
-    loadPoems()
-  }, [])
-
-  // 获取新的随机诗词
-  const refreshPoem = async () => {
-    setLoading(true)
     try {
-      const response = await fetch('/res/ts300.json')
+      const poemFile = POEM_FILES[level]
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5秒超时
+
+      const response = await fetch(poemFile, {
+        signal: controller.signal,
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      })
+
+      clearTimeout(timeoutId)
+
       if (!response.ok) {
-        throw new Error('Failed to load poems')
+        throw new Error(`加载失败 (${response.status})`)
       }
 
-      const data = await response.json()
-      const poems: PoemData[] = data
-      const selectedPoem = getRandomPoem(poems)
-      const processedGroups = processPoem(selectedPoem.text)
-            // 为每个组添加标题和作者信息
-      processedGroups.forEach(group => {
+      const poems = await response.json()
+
+      if (!Array.isArray(poems) || poems.length === 0) {
+        throw new Error('诗词数据格式错误')
+      }
+
+      const randomIndex = Math.floor(Math.random() * poems.length)
+      const selectedPoem = poems[randomIndex]
+
+      if (!selectedPoem?.text) {
+        throw new Error('诗词数据不完整')
+      }
+
+      // 处理诗词数据
+      const processedPoem = processPoem(selectedPoem.text)
+      // 为每个组添加标题和作者信息
+      processedPoem.forEach(group => {
         group.title = selectedPoem.title || ''
         group.author = selectedPoem.author || ''
       })
-      setCurrentPoem(processedGroups)
-      setLoading(false)
+
+      setState({
+        loading: false,
+        error: null,
+        currentPoem: processedPoem
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load poems')
-      setLoading(false)
+      console.error('加载诗词失败:', err)
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: err instanceof Error ? err.message : '未知错误',
+        currentPoem: []
+      }))
     }
-  }
+  }, [level])
+
+  const refreshPoem = useCallback(() => {
+    loadPoemData()
+  }, [loadPoemData])
+
+  useEffect(() => {
+    let mounted = true
+
+    const load = async () => {
+      if (!mounted) return
+      await loadPoemData()
+    }
+
+    load()
+
+    return () => {
+      mounted = false
+    }
+  }, [loadPoemData])
 
   return {
-    loading,
-    error,
-    currentPoem,
+    ...state,
     refreshPoem
   }
 }

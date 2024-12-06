@@ -3,18 +3,37 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { usePoems } from './hooks/usePoems'
 import { useGameSettings } from './hooks/useGameSettings'
 
-import { Connection, GameStats } from './types/game'
-import WordCard from './WordCard'
-import LineCanvas from './LineCanvas'
-import DifficultySelector from './DifficultySelector'
+import { Connection, Difficulty, GameStats } from './types/game'
+import WordCard from './components/WordCard'
+import LineCanvas from './components/LineCanvas'
+import DifficultySelector from './components/DifficultySelector'
 import { WordGroup, ProcessedPoemGroup, GroupProgress } from './types/poem'
 import { calculateOptimalGrid, indexToGridPosition, findOptimalArrangement } from './utils/gridUtils'
 import { isCompleteGroup } from './utils/gameUtils'
-import ScratchCard from './ScratchCard'
+import ScratchCard from './components/ScratchCard'
 
-const WordGame = () => {
-  const { loading, error, currentPoem, refreshPoem } = usePoems()
+interface WordGameProps {
+  initialLevel?: string
+}
+
+const WordGame = ({ initialLevel = 'elementary' }: WordGameProps) => {
+  // 将初始难度映射到游戏难度
+  const mapLevelToDifficulty = (level: string): Difficulty => {
+    switch (level) {
+      case 'elementary':
+        return 'easy'
+      case 'middle':
+        return 'medium'
+      case 'high':
+        return 'hard'
+      default:
+        return 'easy'
+    }
+  }
+
+  // 更新初始难度
   const { settings, updateDifficulty } = useGameSettings()
+  const { loading, error, currentPoem, refreshPoem } = usePoems(initialLevel)
   const gameAreaRef = useRef<HTMLDivElement>(null)
 
   // 游戏状态
@@ -80,6 +99,11 @@ const WordGame = () => {
       setUsedCards(new Set())
     }
   }, [currentPoem])
+
+  // 在 useEffect 中设置初始难度
+  useEffect(() => {
+    updateDifficulty(mapLevelToDifficulty(initialLevel))
+  }, [initialLevel])
 
   // 根据难度调整游戏规则
   const getDifficultySettings = () => {
@@ -481,24 +505,28 @@ const WordGame = () => {
     return [row, col]
   }
 
+  // 添加加载状态显示
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="rounded-lg bg-white p-6 shadow-lg">
-          <p className="text-gray-600">加载中...</p>
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="mb-4 text-2xl">加载中...</div>
+          <div className="text-gray-500">正在准备诗词游戏</div>
         </div>
       </div>
     )
   }
 
+  // 添加错误状态显示
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="rounded-lg bg-white p-6 shadow-lg">
-          <p className="text-red-600">加载失败: {error}</p>
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="mb-4 text-2xl text-red-500">出错了</div>
+          <div className="mb-4 text-gray-600">{error}</div>
           <button
             onClick={refreshPoem}
-            className="mt-4 rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+            className="rounded-full bg-blue-500 px-6 py-2 text-white hover:bg-blue-600"
           >
             重试
           </button>
