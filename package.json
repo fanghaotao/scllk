@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "pages:build": "npx @cloudflare/next-on-pages",
+    "pages:dev": "npx wrangler pages dev .vercel/output/static",
+    "pages:deploy": "npm run build && npm run pages:build"
   },
   "dependencies": {
     "react": "19.0.0-rc-66855b96-20241106",

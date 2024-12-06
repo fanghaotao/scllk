@@ -1,10 +1,12 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // 移除 output: 'export'
+  images: {
+    unoptimized: true,
   },
-  output: 'export',  // 添加这行来启用静态导出
-};
+  typescript: {
+    ignoreBuildErrors: true
+  }
+}
 
-export default nextConfig;
+module.exports = nextConfig

@@ -1,16 +1,17 @@
-"use client"
-import dynamic from 'next/dynamic'
-import { GameLevel } from '../types/game'
+'use client'
 
-const WordGame = dynamic(() => import('../WordGame.client'), {
-  ssr: false,
+import dynamic from 'next/dynamic'
+import { GAME_CONFIG } from '@/app/config/gameConfig'
+
+const WordGame = dynamic(() => import('@/app/WordGame.client'), {
+  ssr: false
 })
 
-interface GameWrapperProps {
-  initialLevel: GameLevel
+type GameWrapperProps = {
+  level: keyof typeof GAME_CONFIG.LEVELS
   stageId: number
 }
 
-export default function GameWrapper({ initialLevel, stageId }: GameWrapperProps) {
-  return <WordGame initialLevel={initialLevel} stageId={stageId} />
+export default function GameWrapper({ level, stageId }: GameWrapperProps) {
+  return <WordGame initialLevel={level} stageId={stageId} />
 }
