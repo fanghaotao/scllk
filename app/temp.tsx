@@ -1,7 +1,7 @@
 "use client"
 import { useState, useMemo, useRef, useEffect } from 'react'
-import WordCard from './WordCard'
-import LineCanvas from './LineCanvas'
+import WordCard from './components/WordCard'
+import LineCanvas from './components/LineCanvas'
 
 interface GridPosition {
     row: number

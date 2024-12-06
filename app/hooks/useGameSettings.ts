@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Difficulty, GameSettings } from '../types/game'
 
-export const useGameSettings = () => {
+export const useGameSettings = (initialDifficulty: Difficulty = 'easy') => {
   const [settings, setSettings] = useState<GameSettings>({
-    difficulty: 'easy'
+    difficulty: initialDifficulty
   })
 
-  const updateDifficulty = (difficulty: Difficulty) => {
-    setSettings(prev => ({ ...prev, difficulty }))
-  }
+  const updateDifficulty = useCallback((difficulty: Difficulty) => {
+    setSettings(prev => ({
+      ...prev,
+      difficulty
+    }))
+  }, [])
 
   return {
     settings,

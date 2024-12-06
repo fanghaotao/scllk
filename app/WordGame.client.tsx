@@ -2,19 +2,86 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { usePoems } from './hooks/usePoems'
 import { useGameSettings } from './hooks/useGameSettings'
+import { useRouter } from 'next/navigation'
 
-import { Connection, GameStats } from './types/game'
-import WordCard from './WordCard'
-import LineCanvas from './LineCanvas'
-import DifficultySelector from './DifficultySelector'
+
+import { Connection, Difficulty, GameStats, GameLevel, WordGameProps } from './types/game'
+import WordCard from './components/WordCard'
+import LineCanvas from './components/LineCanvas'
+import DifficultySelector from './components/DifficultySelector'
 import { WordGroup, ProcessedPoemGroup, GroupProgress } from './types/poem'
 import { calculateOptimalGrid, indexToGridPosition, findOptimalArrangement } from './utils/gridUtils'
 import { isCompleteGroup } from './utils/gameUtils'
-import ScratchCard from './ScratchCard'
+import ScratchCard from './components/ScratchCard'
+import { saveStageCompletion } from './utils/progressUtils'
+import { GAME_CONFIG } from './config/gameConfig'
 
-const WordGame = () => {
-  const { loading, error, currentPoem, refreshPoem } = usePoems()
-  const { settings, updateDifficulty } = useGameSettings()
+interface VictoryModalProps {
+  onNextStage: () => void
+  onReplay: () => void
+  isLastStage: boolean
+}
+
+const VictoryModal = ({ onNextStage, onReplay, isLastStage }: VictoryModalProps) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
+        <div className="mb-6">
+          <span className="material-icons text-6xl text-yellow-500">
+            emoji_events
+          </span>
+        </div>
+        <h3 className="mb-4 text-2xl font-bold text-green-600">恭喜过关！</h3>
+        <div className="space-y-3">
+          {!isLastStage && (
+            <button
+              onClick={onNextStage}
+              className="w-full rounded-full bg-blue-500 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-600"
+            >
+              下一关
+            </button>
+          )}
+          <button
+            onClick={onReplay}
+            className="w-full rounded-full bg-gray-100 px-6 py-3 font-medium text-gray-600 transition-colors hover:bg-gray-200"
+          >
+            重玩本关
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const WordGame = ({ initialLevel = GAME_CONFIG.DEFAULT_LEVEL, stageId }: WordGameProps) => {
+  const router = useRouter()
+  const [showVictory, setShowVictory] = useState(false)
+  const [isStageComplete, setIsStageComplete] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [currentPoemIndex, setCurrentPoemIndex] = useState(0)
+  const [completedPoemCount, setCompletedPoemCount] = useState(0)
+  const [showNextPoemCountdown, setShowNextPoemCountdown] = useState(false)
+  const [countdown, setCountdown] = useState(3)
+  
+  // 将初始难度映射到游戏难度
+  const mapLevelToDifficulty = (level: GameLevel): Difficulty => {
+    switch (level) {
+      case 'elementary':
+        return 'easy'
+      case 'middle':
+        return 'easy'
+      case 'high':
+        return 'easy'
+      default:
+        return 'easy'
+    }
+  }
+
+  const initialDifficulty = mapLevelToDifficulty(initialLevel)
+  
+  // 更新初始难度
+  const { settings, updateDifficulty } = useGameSettings(initialDifficulty)
+  const { loading, error, currentPoem, refreshPoem } = usePoems(initialLevel, stageId)
   const gameAreaRef = useRef<HTMLDivElement>(null)
 
   // 游戏状态
@@ -80,6 +147,11 @@ const WordGame = () => {
       setUsedCards(new Set())
     }
   }, [currentPoem])
+
+  // 在 useEffect 中设置初始难度
+  useEffect(() => {
+    updateDifficulty(initialDifficulty)
+  }, [initialDifficulty])
 
   // 根据难度调整游戏规则
   const getDifficultySettings = () => {
@@ -481,24 +553,120 @@ const WordGame = () => {
     return [row, col]
   }
 
+  // 计算总共需要完成的组数
+  const totalGroups = useMemo(() => currentPoem.length, [currentPoem])
+
+  // 更新进度和检查诗词完成情况
+  useEffect(() => {
+    if (currentPoem.length > 0) {
+      const totalGroupsInPoem = currentPoem.length
+      const completedCount = gameStats.completedGroups.size
+      const newProgress = Math.round((completedCount / totalGroupsInPoem) * 100)
+      setProgress(newProgress)
+      
+      if (completedCount === totalGroupsInPoem) {
+        setCompletedPoemCount(prev => {
+          const newCount = prev + 1
+          // 使用配置值判断是否完成所有诗
+          if (newCount >= GAME_CONFIG.POEMS_PER_STAGE) {
+            setIsStageComplete(true)
+            setShowVictory(true)
+            return newCount
+          }
+          setShowNextPoemCountdown(true)
+          setCountdown(GAME_CONFIG.COUNTDOWN_SECONDS)
+          return newCount
+        })
+      }
+    }
+  }, [gameStats.completedGroups.size, currentPoem])
+
+  // 处理倒计时和下一首诗
+  useEffect(() => {
+    let timer: NodeJS.Timeout
+    
+    if (showNextPoemCountdown && countdown > 0) {
+      timer = setTimeout(() => {
+        setCountdown(prev => prev - 1)
+      }, 1000)
+    } else if (showNextPoemCountdown && countdown === 0) {
+      // 倒计时结束，加载下一首诗
+      setShowNextPoemCountdown(false)
+      refreshPoem()
+      // 重置当前诗词的游戏状态
+      setGameStats({
+        score: 0,
+        completedGroups: new Set()
+      })
+      setConnections([])
+      setCurrentPath([])
+      setUsedCards(new Set())
+      setProgress(0) // 重置进度
+    }
+
+    return () => {
+      if (timer) {
+        clearTimeout(timer)
+      }
+    }
+  }, [showNextPoemCountdown, countdown])
+
+  // 处理下一关
+  const handleNextStage = () => {
+    if (typeof stageId === 'number') {
+      const nextStageId = stageId + 1
+      router.push(`/game/${initialLevel}/stage/${nextStageId}`)
+    }
+  }
+
+  // 处理重玩
+  const handleReplay = () => {
+    setShowVictory(false)
+    setIsStageComplete(false)
+    refreshPoem()
+  }
+
+  // 检查是否是最后一关
+  const isLastStage = useMemo(() => {
+    // 这里可以根据实际关卡总数来判断
+    return false // 暂时返回 false
+  }, [stageId])
+
+  // 在完成所有5首诗时保存进度
+  useEffect(() => {
+    if (isStageComplete && typeof stageId === 'number') {
+      saveStageCompletion(initialLevel, stageId)
+    }
+  }, [isStageComplete, initialLevel, stageId])
+
+  // 修改返回按钮的处理函数
+  const handleBack = () => {
+    // 返回到对应难度的关卡选择页面
+    router.push(`/game/${initialLevel}`)
+  }
+
+  // 添加加载状态显示
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="rounded-lg bg-white p-6 shadow-lg">
-          <p className="text-gray-600">加载中...</p>
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="mb-4 text-2xl">加载中...</div>
+          <div className="text-gray-500">正在准备诗词游戏</div>
         </div>
       </div>
     )
   }
 
+  // 添加错误状态显示
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="rounded-lg bg-white p-6 shadow-lg">
-          <p className="text-red-600">加载失败: {error}</p>
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="mb-4 text-2xl text-red-500">出错了</div>
+          <div className="mb-4 text-gray-600">{error}</div>
           <button
             onClick={refreshPoem}
-            className="mt-4 rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+            className="rounded-full bg-blue-500 px-6 py-2 text-white hover:bg-blue-600"
           >
             重试
           </button>
@@ -510,116 +678,143 @@ const WordGame = () => {
   const difficultySettings = getDifficultySettings()
 
   return (
-    <main className="min-h-screen bg-slate-100 px-2 py-4 sm:px-4 sm:py-6">
-      <div className="mx-auto max-w-lg sm:max-w-2xl md:max-w-4xl">
-        <div className="rounded-lg bg-white p-3 shadow-lg sm:p-6">
-          {/* 顶部控制区 */}
-          <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
-            <button
-              onClick={refreshPoem}
-              className="w-full rounded bg-blue-500 px-3 py-2 text-sm text-white hover:bg-blue-600 
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 
-                sm:w-auto sm:px-4 sm:text-base"
-            >
-              换一首诗
-            </button>
-            <div className="flex justify-center">
-              <DifficultySelector
-                currentDifficulty={settings.difficulty}
-                onDifficultyChange={updateDifficulty}
-              />
+    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white px-4 py-8">
+      <div className="mx-auto max-w-4xl">
+        <div className="overflow-hidden rounded-2xl bg-white shadow-xl">
+          {/* 顶部导航栏 */}
+          <div className="border-b bg-gray-50/50 p-4">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={handleBack}
+                className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-gray-600 shadow-sm transition-all hover:bg-gray-50 hover:shadow-md"
+              >
+                <span className="material-icons text-xl">arrow_back</span>
+                <span>返回关卡选择</span>
+              </button>
+              <div className="rounded-lg bg-blue-50 px-3 py-1.5 text-sm text-blue-600">
+                第 {stageId} 关
+              </div>
             </div>
           </div>
 
-          {/* 诗歌标题、作者和提示区域 */}
-          {currentPoem.length > 0 && (
-            <div className="mb-4 space-y-4 sm:mb-6">
-              {/* 标题和作者 */}
-              <div className="text-center">
-                <h2 className="text-lg font-semibold text-gray-800 sm:text-xl md:text-2xl">
-                  {currentPoem[0].title || "无题"}
-                </h2>
-                <p className="mt-1 text-xs text-gray-600 sm:mt-2 sm:text-sm md:text-base">
-                  {currentPoem[0].author || "佚名"}
-                </p>
+          <div className="p-6">
+            {/* 进度条 */}
+            <div className="mb-6">
+              <div className="mb-2 flex items-center justify-between text-sm">
+                <span className="flex items-center gap-2 text-blue-600">
+                  <span className="material-icons text-xl">auto_stories</span>
+                  <span>完成进度: {completedPoemCount}/{GAME_CONFIG.POEMS_PER_STAGE}</span>
+                </span>
+                <span className="text-gray-500">当前诗词: {progress}%</span>
               </div>
-
-              {/* 诗句提示区域 */}
-              <div className="rounded-lg bg-gray-50 p-2 sm:p-4">
-                <h3 className="mb-2 text-center text-xs font-medium text-gray-700 sm:mb-3 sm:text-sm">
-                  诗句提示
-                </h3>
-                <div className={`grid gap-2 sm:gap-3 md:gap-4 ${
-                  currentPoem.length <= 2 ? 'grid-cols-1' : 
-                  currentPoem.length <= 4 ? 'sm:grid-cols-2' :
-                  'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
-                }`}>
-                  {currentPoem.map(group => {
-                    const isCompleted = gameStats.completedGroups.has(group.id)
-                    return (
-                      <div 
-                        key={group.id}
-                        className="relative h-10 sm:h-12"
-                      >
-                        <ScratchCard
-                          text={group.text}
-                          isCompleted={isCompleted}
-                          groupId={group.id}
-                          maskedText={maskedTexts[group.id]}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
+              <div className="h-2 overflow-hidden rounded-full bg-blue-50">
+                <div 
+                  className="h-full rounded-full bg-blue-500 transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
               </div>
             </div>
-          )}
 
-          {/* 游戏区域 */}
-          <div 
-            ref={gameAreaRef}
-            className="relative mb-4 touch-none rounded-lg border-2 border-dashed border-gray-200 p-1 sm:mb-6 sm:p-4"
-            onMouseLeave={handleMouseLeave}
-            onMouseUp={handleMouseUp}
-            onTouchMove={(e) => handleTouchMove(e as unknown as TouchEvent)}
-            onTouchEnd={handleTouchEnd}
-          >
-            <LineCanvas 
-              lines={connections.map(conn => [conn.startPoint, conn.endPoint])}
-              currentPath={getCurrentPathPoints()}
-            />
+            {/* 诗词信息区域 */}
+            {currentPoem.length > 0 && (
+              <div className="mb-6 space-y-4">
+                {/* 标题和作者 */}
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    {currentPoem[0].title || "无题"}
+                  </h2>
+                  <p className="mt-2 text-gray-500">
+                    {currentPoem[0].author || "佚名"}
+                  </p>
+                </div>
+
+                {/* 诗句提示区域 */}
+                <div className="rounded-xl bg-gradient-to-br from-purple-50 p-6">
+                  <h3 className="mb-4 text-center font-medium text-gray-700">
+                    <span className="material-icons mr-2 align-middle text-purple-500">description</span>
+                    诗句提示
+                  </h3>
+                  <div className="space-y-3">
+                    {currentPoem.map(group => {
+                      const isCompleted = gameStats.completedGroups.has(group.id)
+                      return (
+                        <div 
+                          key={group.id}
+                          className="relative h-10 sm:h-12"
+                        >
+                          <ScratchCard
+                            text={group.text}
+                            isCompleted={isCompleted}
+                            groupId={group.id}
+                            maskedText={maskedTexts[group.id]}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 游戏区域 */}
             <div 
-              className="grid gap-1 sm:gap-2 md:gap-4"
-              style={{
-                gridTemplateColumns: `repeat(${gridLayout.cols}, minmax(0, 1fr))`,
-                gridTemplateRows: `repeat(${gridLayout.rows}, minmax(0, 1fr))`
-              }}
+              ref={gameAreaRef}
+              className="relative touch-none rounded-xl border-2 border-dashed border-blue-100 bg-gradient-to-br from-blue-50/30 p-6"
+              onMouseLeave={handleMouseLeave}
+              onMouseUp={handleMouseUp}
+              onTouchMove={(e) => handleTouchMove(e as unknown as TouchEvent)}
+              onTouchEnd={handleTouchEnd}
             >
-              {gridLayout.grid.flat().map((wordGroup, index) => (
-                wordGroup ? (
-                  <WordCard
-                    key={`${wordGroup.word}-${index}`}
-                    id={`card-${index}`}
-                    character={wordGroup.word}
-                    groupId={wordGroup.groupId}
-                    orderInGroup={wordGroup.orderInGroup}
-                    isSelected={currentPath.includes(index)}
-                    isUsed={usedCards.has(index)}
-                    showHint={difficultySettings.showHints && wordGroup.orderInGroup === 0}
-                    showOrder={difficultySettings.showOrder}
-                    onMouseDown={() => handleMouseDown(index)}
-                    onMouseEnter={() => handleMouseEnter(index)}
-                    onTouchStart={() => handleTouchStart(index)}
-                    className="word-card text-sm sm:text-base md:text-lg"
-                  />
-                ) : (
-                  <div key={`empty-${index}`} className="aspect-square" />
-                )
-              ))}
+              <LineCanvas 
+                lines={connections.map(conn => [conn.startPoint, conn.endPoint])}
+                currentPath={getCurrentPathPoints()}
+              />
+              <div 
+                className="grid gap-2 sm:gap-3 md:gap-4"
+                style={{
+                  gridTemplateColumns: `repeat(${gridLayout.cols}, minmax(0, 1fr))`,
+                  gridTemplateRows: `repeat(${gridLayout.rows}, minmax(0, 1fr))`
+                }}
+              >
+                {gridLayout.grid.flat().map((wordGroup, index) => (
+                  wordGroup ? (
+                    <WordCard
+                      key={`${wordGroup.word}-${index}`}
+                      id={`card-${index}`}
+                      character={wordGroup.word}
+                      groupId={wordGroup.groupId}
+                      orderInGroup={wordGroup.orderInGroup}
+                      isSelected={currentPath.includes(index)}
+                      isUsed={usedCards.has(index)}
+                      showHint={difficultySettings.showHints && wordGroup.orderInGroup === 0}
+                      showOrder={difficultySettings.showOrder}
+                      onMouseDown={() => handleMouseDown(index)}
+                      onMouseEnter={() => handleMouseEnter(index)}
+                      onTouchStart={() => handleTouchStart(index)}
+                      className="word-card text-sm sm:text-base md:text-lg"
+                    />
+                  ) : (
+                    <div key={`empty-${index}`} className="aspect-square" />
+                  )
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* 倒计时遮罩 */}
+      {showNextPoemCountdown && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="rounded-2xl bg-white p-8 text-center shadow-xl">
+            <div className="mb-4 text-6xl text-blue-500">
+              <span className="material-icons">timer</span>
+            </div>
+            <h3 className="mb-4 text-xl text-gray-800">准备进入下一首</h3>
+            <p className="text-4xl font-bold text-blue-600">{countdown}</p>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
