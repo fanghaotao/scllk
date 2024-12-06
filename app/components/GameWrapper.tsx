@@ -1,14 +1,16 @@
 "use client"
 import dynamic from 'next/dynamic'
-import { useParams } from 'next/navigation'
+import { GameLevel } from '../types/game'
 
-const WordGameClient = dynamic(() => import('../WordGame.client'), {
-  ssr: false
+const WordGame = dynamic(() => import('../WordGame.client'), {
+  ssr: false,
 })
 
-export default function GameWrapper() {
-  const params = useParams()
-  const level = params.level as string
+interface GameWrapperProps {
+  initialLevel: GameLevel
+  stageId: number
+}
 
-  return <WordGameClient initialLevel={level} />
+export default function GameWrapper({ initialLevel, stageId }: GameWrapperProps) {
+  return <WordGame initialLevel={initialLevel} stageId={stageId} />
 }

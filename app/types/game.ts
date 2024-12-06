@@ -1,7 +1,13 @@
 export type Difficulty = 'easy' | 'medium' | 'hard'
+export type GameLevel = 'elementary' | 'middle' | 'high'
 
 export interface GameSettings {
   difficulty: Difficulty
+}
+
+export interface WordGameProps {
+  initialLevel: GameLevel
+  stageId?: number
 }
 
 export interface PoemData {

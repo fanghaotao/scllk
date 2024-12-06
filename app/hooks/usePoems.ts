@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ProcessedPoemGroup } from '../types/poem'
-import { processPoem } from '../utils/poemUtils'
+import { GameLevel } from '@/types/game'
+import { ProcessedPoemGroup } from '@/types/poem'
+import { processPoem } from '@/utils/poemUtils'
+import { GAME_CONFIG } from '../config/gameConfig'
 
-const POEM_FILES = {
-  elementary: '/res/xiaoxue.json',
-  middle: '/res/chuzhong.json',
-  high: '/res/gaozhong.json'
+const LEVEL_FILE_MAP = {
+  elementary: 'xiaoxue',
+  middle: 'chuzhong',
+  high: 'gaozhong'
 } as const
 
-export const usePoems = (level: keyof typeof POEM_FILES = 'elementary') => {
+export const usePoems = (level: GameLevel = 'elementary', stageId?: number) => {
   const [state, setState] = useState<{
     loading: boolean
     error: string | null
@@ -23,32 +25,36 @@ export const usePoems = (level: keyof typeof POEM_FILES = 'elementary') => {
     setState(prev => ({ ...prev, loading: true, error: null }))
 
     try {
-      const poemFile = POEM_FILES[level]
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5秒超时
-
-      const response = await fetch(poemFile, {
-        signal: controller.signal,
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      })
-
-      clearTimeout(timeoutId)
-
+      const fileName = LEVEL_FILE_MAP[level]
+      const response = await fetch(`/res/${fileName}.json`)
+      
       if (!response.ok) {
-        throw new Error(`加载失败 (${response.status})`)
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
-
+      
       const poems = await response.json()
 
-      if (!Array.isArray(poems) || poems.length === 0) {
+      if (!Array.isArray(poems)) {
         throw new Error('诗词数据格式错误')
       }
 
-      const randomIndex = Math.floor(Math.random() * poems.length)
-      const selectedPoem = poems[randomIndex]
+      // 使用配置的每关诗词数量
+      let stagePoems = poems
+      if (stageId) {
+        const startIndex = (stageId - 1) * GAME_CONFIG.POEMS_PER_STAGE
+        stagePoems = poems.slice(
+          startIndex, 
+          startIndex + GAME_CONFIG.POEMS_PER_STAGE
+        )
+        
+        if (stagePoems.length === 0) {
+          throw new Error('该关卡没有诗词数据')
+        }
+      }
+
+      // 随机选择一首诗
+      const randomIndex = Math.floor(Math.random() * stagePoems.length)
+      const selectedPoem = stagePoems[randomIndex]
 
       if (!selectedPoem?.text) {
         throw new Error('诗词数据不完整')
@@ -76,29 +82,14 @@ export const usePoems = (level: keyof typeof POEM_FILES = 'elementary') => {
         currentPoem: []
       }))
     }
-  }, [level])
-
-  const refreshPoem = useCallback(() => {
-    loadPoemData()
-  }, [loadPoemData])
+  }, [level, stageId])
 
   useEffect(() => {
-    let mounted = true
-
-    const load = async () => {
-      if (!mounted) return
-      await loadPoemData()
-    }
-
-    load()
-
-    return () => {
-      mounted = false
-    }
+    loadPoemData()
   }, [loadPoemData])
 
   return {
     ...state,
-    refreshPoem
+    refreshPoem: loadPoemData
   }
 }
