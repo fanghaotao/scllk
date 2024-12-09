@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    runtime: 'edge',
+  },
   typescript: {
     ignoreBuildErrors: true
   },
@@ -8,6 +11,16 @@ const nextConfig = {
   },
   images: {
     unoptimized: true
+  },
+  // 添加 Cloudflare 特定配置
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.experiments = {
+        ...config.experiments,
+        topLevelAwait: true,
+      }
+    }
+    return config
   }
 }
 
