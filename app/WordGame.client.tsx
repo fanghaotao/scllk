@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { usePoems } from './hooks/usePoems'
 import { useGameSettings } from './hooks/useGameSettings'
 import { useRouter } from 'next/navigation'
@@ -19,10 +19,11 @@ import { GAME_CONFIG } from './config/gameConfig'
 interface VictoryModalProps {
   onNextStage: () => void
   onReplay: () => void
+  onBack: () => void
   isLastStage: boolean
 }
 
-const VictoryModal = ({ onNextStage, onReplay, isLastStage }: VictoryModalProps) => {
+const VictoryModal = ({ onNextStage, onReplay, onBack, isLastStage }: VictoryModalProps) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
@@ -31,7 +32,9 @@ const VictoryModal = ({ onNextStage, onReplay, isLastStage }: VictoryModalProps)
             emoji_events
           </span>
         </div>
-        <h3 className="mb-4 text-2xl font-bold text-green-600">恭喜过关！</h3>
+        <h3 className="mb-4 text-2xl font-bold text-green-600">
+          {isLastStage ? '恭喜通关！' : '恭喜过关！'}
+        </h3>
         <div className="space-y-3">
           {!isLastStage && (
             <button
@@ -45,7 +48,13 @@ const VictoryModal = ({ onNextStage, onReplay, isLastStage }: VictoryModalProps)
             onClick={onReplay}
             className="w-full rounded-full bg-gray-100 px-6 py-3 font-medium text-gray-600 transition-colors hover:bg-gray-200"
           >
-            重玩本关
+            {isLastStage ? '重新挑战' : '重玩本关'}
+          </button>
+          <button
+            onClick={onBack}
+            className="w-full rounded-full bg-gray-100 px-6 py-3 font-medium text-gray-600 transition-colors hover:bg-gray-200"
+          >
+            返回关卡选择
           </button>
         </div>
       </div>
@@ -81,7 +90,7 @@ const WordGame = ({ initialLevel = GAME_CONFIG.DEFAULT_LEVEL, stageId }: WordGam
   
   // 更新初始难度
   const { settings, updateDifficulty } = useGameSettings(initialDifficulty)
-  const { loading, error, currentPoem, refreshPoem } = usePoems(initialLevel, stageId)
+  const { loading, error, currentPoem, refreshPoem, nextPoem } = usePoems(initialLevel, stageId)
   const gameAreaRef = useRef<HTMLDivElement>(null)
 
   // 游戏状态
@@ -581,27 +590,89 @@ const WordGame = ({ initialLevel = GAME_CONFIG.DEFAULT_LEVEL, stageId }: WordGam
     }
   }, [gameStats.completedGroups.size, currentPoem])
 
-  // 处理倒计时和下一首诗
+  // 添加一个状态来防止重复触发
+  const [isProcessingCompletion, setIsProcessingCompletion] = useState(false)
+  
+  // 处理诗词完成
+  const handlePoemComplete = useCallback(async () => {
+    if (isProcessingCompletion) return
+    
+    setIsProcessingCompletion(true)
+    
+    const newCompletedCount = completedPoemCount + 1
+    console.log('完成诗词数量:', newCompletedCount, '/', GAME_CONFIG.POEMS_PER_STAGE)
+    
+    if (newCompletedCount === GAME_CONFIG.POEMS_PER_STAGE) {
+      console.log('所有诗词已完成，显示胜利界面')
+      setShowVictory(true)
+      setIsStageComplete(true)
+      
+      if (stageId) {
+        try {
+          // 只在这里调用一次 saveStageCompletion
+          await saveStageCompletion(initialLevel, stageId)
+          console.log('已保存进度，当前完成关卡:', stageId)
+        } catch (error) {
+          console.error('保存关卡进度失败:', error)
+        }
+      }
+    } else {
+      console.log('准备切换到下一首诗')
+      setCompletedPoemCount(newCompletedCount)
+      setShowNextPoemCountdown(true)
+      setCountdown(GAME_CONFIG.COUNTDOWN_SECONDS)
+    }
+    
+    setTimeout(() => {
+      setIsProcessingCompletion(false)
+    }, 100)
+  }, [completedPoemCount, isProcessingCompletion, initialLevel, stageId])
+
+  // 检查当前诗词是否完成
+  useEffect(() => {
+    if (showNextPoemCountdown) return // 如果正在倒计时，不检查完成状态
+    
+    const allGroupsComplete = currentPoem.every(group => 
+      gameStats.completedGroups.has(group.id)
+    )
+    
+    if (allGroupsComplete && currentPoem.length > 0 && !showVictory && !isProcessingCompletion) {
+      console.log('当前诗词完成，检查是否全部完成')
+      handlePoemComplete()
+    }
+  }, [
+    gameStats.completedGroups, 
+    currentPoem, 
+    handlePoemComplete, 
+    showVictory, 
+    showNextPoemCountdown,
+    isProcessingCompletion
+  ])
+
+  // 倒计时效果
   useEffect(() => {
     let timer: NodeJS.Timeout
+    
+    console.log('倒计时 useEffect - showNextPoemCountdown:', showNextPoemCountdown)
+    console.log('倒计时 useEffect - countdown:', countdown)
     
     if (showNextPoemCountdown && countdown > 0) {
       timer = setTimeout(() => {
         setCountdown(prev => prev - 1)
       }, 1000)
     } else if (showNextPoemCountdown && countdown === 0) {
-      // 倒计时结束，加载下一首诗
+      console.log('倒计时结束，准备切换到下一首诗')
       setShowNextPoemCountdown(false)
-      refreshPoem()
-      // 重置当前诗词的游戏状态
-      setGameStats({
-        score: 0,
+      nextPoem()
+      // 重置游戏状态
+      setGameStats(prev => ({
+        score: prev.score,
         completedGroups: new Set()
-      })
+      }))
       setConnections([])
       setCurrentPath([])
       setUsedCards(new Set())
-      setProgress(0) // 重置进度
+      setProgress(0)
     }
 
     return () => {
@@ -609,15 +680,16 @@ const WordGame = ({ initialLevel = GAME_CONFIG.DEFAULT_LEVEL, stageId }: WordGam
         clearTimeout(timer)
       }
     }
-  }, [showNextPoemCountdown, countdown])
+  }, [showNextPoemCountdown, countdown, nextPoem])
 
   // 处理下一关
-  const handleNextStage = () => {
-    if (typeof stageId === 'number') {
-      const nextStageId = stageId + 1
-      router.push(`/game/${initialLevel}/stage/${nextStageId}`)
+  const handleNextStage = useCallback(() => {
+    if (stageId) {
+      // 直接跳转到下一关，不再调用 saveStageCompletion
+      // 因为在完成关卡时已经保存了进度
+      router.push(`/game/${initialLevel}/stage/${stageId + 1}`)
     }
-  }
+  }, [router, initialLevel, stageId])
 
   // 处理重玩
   const handleReplay = () => {
@@ -632,18 +704,28 @@ const WordGame = ({ initialLevel = GAME_CONFIG.DEFAULT_LEVEL, stageId }: WordGam
     return false // 暂时返回 false
   }, [stageId])
 
-  // 在完成所有5首诗时保存进度
-  useEffect(() => {
-    if (isStageComplete && typeof stageId === 'number') {
-      saveStageCompletion(initialLevel, stageId)
-    }
-  }, [isStageComplete, initialLevel, stageId])
 
   // 修改返回按钮的处理函数
   const handleBack = () => {
     // 返回到对应难度的关卡选择页面
     router.push(`/game/${initialLevel}`)
   }
+
+  
+  // 重置游戏状态的函数
+  const resetGameState = useCallback(() => {
+    setShowVictory(false)
+    setIsStageComplete(false)
+    setCompletedPoemCount(0)
+    setGameStats({
+      score: 0,
+      completedGroups: new Set()
+    })
+    setConnections([])
+    setCurrentPath([])
+    setUsedCards(new Set())
+    setProgress(0)
+  }, [])
 
   // 添加加载状态显示
   if (loading) {
@@ -678,7 +760,7 @@ const WordGame = ({ initialLevel = GAME_CONFIG.DEFAULT_LEVEL, stageId }: WordGam
   const difficultySettings = getDifficultySettings()
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white px-4 py-8">
+    <main className="min-h-screen bg-gradient-to-b from-white to-blue-50">
       <div className="mx-auto max-w-4xl">
         <div className="overflow-hidden rounded-2xl bg-white shadow-xl">
           {/* 顶部导航栏 */}
@@ -814,6 +896,19 @@ const WordGame = ({ initialLevel = GAME_CONFIG.DEFAULT_LEVEL, stageId }: WordGam
             <p className="text-4xl font-bold text-blue-600">{countdown}</p>
           </div>
         </div>
+      )}
+
+      {/* 胜利弹窗 */}
+      {showVictory && (
+        <VictoryModal
+          onNextStage={handleNextStage}
+          onReplay={() => {
+            resetGameState()
+            refreshPoem()
+          }}
+          onBack={handleBack}
+          isLastStage={isLastStage}
+        />
       )}
     </main>
   )
