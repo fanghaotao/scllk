@@ -1,52 +1,34 @@
 import { Metadata } from 'next'
-import { GAME_CONFIG } from '@/app/config/gameConfig'
 import GameWrapper from '@/app/components/GameWrapper'
 
-type GameLevel = keyof typeof GAME_CONFIG.LEVELS
+export const runtime = 'edge'
 
-type Params = {
-  level: GameLevel
-  stageId: string
-}
-
-// 添加 generateStaticParams 函数
-export async function generateStaticParams() {
-  const levels = Object.keys(GAME_CONFIG.LEVELS) as GameLevel[]
-  const params = []
-
-  for (const level of levels) {
-    // 根据每个难度级别生成关卡参数
-    for (let stage = 1; stage <= GAME_CONFIG.LEVELS[level].totalStages; stage++) {
-      params.push({
-        level: level,
-        stageId: stage.toString()
-      })
-    }
+type Props = {
+  params: {
+    stageId: string
   }
-
-  return params
 }
 
 export async function generateMetadata({
   params
-}: {
-  params: Params
-}): Promise<Metadata> {
+}: Props): Promise<Metadata> {
+  const stageId = await params.stageId
   return {
-    title: `第 ${params.stageId} 关 - 古诗词连连看`,
-    description: `古诗词连连看游戏第 ${params.stageId} 关`
+    title: `第 ${stageId} 关 - 小学古诗词`,
+    description: `古诗词连连看游戏第 ${stageId} 关`
   }
 }
 
-export default function Page({
+export default async function Page({
   params
-}: {
-  params: Params
-}) {
+}: Props) {
+  // 等待参数解析
+  const stageId =  params.stageId
+
   return (
     <GameWrapper 
-      level={params.level} 
-      stageId={parseInt(params.stageId, 10)} 
+      level="elementary"
+      stageId={parseInt(stageId, 10)} 
     />
   )
 }
