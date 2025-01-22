@@ -3,6 +3,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { getCompletedStages } from '../utils/progressUtils'
 import { GAME_CONFIG } from '../config/gameConfig'
+import GameTutorial from './GameTutorial'
 
 interface Poem {
   num: number
@@ -50,6 +51,7 @@ const LevelSelection = () => {
   const pathname = usePathname()
   const [stages, setStages] = useState<Stage[]>([])
   const [loading, setLoading] = useState(true)
+  const [showTutorial, setShowTutorial] = useState(false)
 
   const level = pathname.split('/')[2] as keyof typeof LEVEL_FILE_MAP
   const levelConfig = LEVEL_CONFIGS[level]
@@ -98,10 +100,39 @@ const LevelSelection = () => {
     loadStages()
   }, [level])
 
+  // 检查是否需要显示教程（只在第一次访问游戏时显示）
+  useEffect(() => {
+    const hasCompletedTutorial = localStorage.getItem('hasCompletedTutorial')
+    if (!hasCompletedTutorial) {
+      setShowTutorial(true)
+    }
+  }, [])
+
+  // 处理教程完成
+  const handleTutorialComplete = () => {
+    localStorage.setItem('hasCompletedTutorial', 'true')
+    setShowTutorial(false)
+  }
+
+  // 处理跳过教程
+  const handleTutorialSkip = () => {
+    localStorage.setItem('hasCompletedTutorial', 'true')
+    setShowTutorial(false)
+  }
+
+  // 修改 handleStageClick 添加延迟导航
   const handleStageClick = (stageId: number, isUnlocked: boolean) => {
     if (!isUnlocked) {
       return
     }
+    
+    // 如果教程正在显示，不要导航
+    if (showTutorial) {
+      console.log('Preventing navigation while tutorial is showing')
+      return
+    }
+    
+    console.log('Navigating to stage:', stageId)
     router.push(`/game/${level}/stage/${stageId}`)
   }
 
@@ -189,6 +220,22 @@ const LevelSelection = () => {
           </div>
         </div>
       </div>
+      
+      {/* 教程组件 - 只在第一次访问时显示 */}
+      {showTutorial && (
+        <GameTutorial
+          onComplete={handleTutorialComplete}
+          onSkip={handleTutorialSkip}
+        />
+      )}
+      
+      {/* 添加调试信息 */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-4 right-4 rounded bg-black/80 p-2 text-xs text-white">
+          Level: {level}<br />
+          Tutorial: {showTutorial ? 'showing' : 'hidden'}
+        </div>
+      )}
     </div>
   )
 }
