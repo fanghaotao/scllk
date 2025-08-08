@@ -7,12 +7,13 @@ interface Point {
 }
 
 interface LineCanvasProps {
-  lines: Array<[Point, Point]> // 已确认的连线
-  currentPath?: Point[] // 当前正在绘制的路径
+  lines: Array<[Point, Point]>
+  currentPath?: Point[]
+  invalidPath?: Point[]
   className?: string
 }
 
-const LineCanvas = ({ lines, currentPath, className = '' }: LineCanvasProps) => {
+const LineCanvas = ({ lines, currentPath, invalidPath, className = '' }: LineCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -56,7 +57,23 @@ const LineCanvas = ({ lines, currentPath, className = '' }: LineCanvasProps) => 
       
       ctx.stroke()
     }
-  }, [lines, currentPath])
+
+    // 绘制无效路径
+    if (invalidPath && invalidPath.length > 1) {
+      ctx.strokeStyle = '#ef4444' // red-500
+      ctx.lineWidth = 3
+      ctx.setLineDash([5, 5]) // Dashed line
+      ctx.beginPath()
+      ctx.moveTo(invalidPath[0].x, invalidPath[0].y)
+
+      for (let i = 1; i < invalidPath.length; i++) {
+        ctx.lineTo(invalidPath[i].x, invalidPath[i].y)
+      }
+
+      ctx.stroke()
+      ctx.setLineDash([]) // Reset line dash
+    }
+  }, [lines, currentPath, invalidPath])
 
   return (
     <canvas

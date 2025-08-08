@@ -5,27 +5,63 @@ import { GAME_CONFIG } from './config/gameConfig'
 // 定义难度等级配置
 const LEVEL_CONFIGS = {
   elementary: {
-    icon: '⭐',
+    icon: 'elementary',
     name: '小学',
     description: '适合初学者的基础关卡',
-    bgColor: 'from-blue-50',
-    iconColor: 'text-yellow-500'
+    bgColor: 'from-green-400 to-blue-500',
+    shadowColor: 'shadow-green-500/50'
   },
   middle: {
-    icon: '⭐⭐',
+    icon: 'middle',
     name: '初中',
     description: '需要更多思考的中级关卡',
-    bgColor: 'from-purple-50',
-    iconColor: 'text-yellow-500'
+    bgColor: 'from-purple-400 to-indigo-500',
+    shadowColor: 'shadow-purple-500/50'
   },
   high: {
-    icon: '⭐⭐⭐',
+    icon: 'high',
     name: '高中',
     description: '富有挑战性的高级关卡',
-    bgColor: 'from-indigo-50',
-    iconColor: 'text-yellow-500'
+    bgColor: 'from-red-400 to-yellow-500',
+    shadowColor: 'shadow-red-500/50'
+  },
+  expert: {
+    icon: 'expert',
+    name: '专家',
+    description: '终极诗词大师挑战',
+    bgColor: 'from-gray-700 to-black',
+    shadowColor: 'shadow-gray-800/50'
   }
 } as const
+
+// 游戏介绍卡片配置
+const INFO_CARDS = [
+  {
+    icon: 'auto_stories',
+    title: '寓教于乐',
+    description: '通过趣味游戏方式，轻松记忆古诗词，提升文学素养。',
+    gradient: 'from-blue-100 to-blue-200'
+  },
+  {
+    icon: 'psychology',
+    title: '智力挑战',
+    description: '考验记忆力和观察力，培养逻辑思维能力。',
+    gradient: 'from-purple-100 to-purple-200'
+  },
+  {
+    icon: 'emoji_events',
+    title: '关卡进阶',
+    description: '从易到难的关卡设计，循序渐进提升学习兴趣。',
+    gradient: 'from-indigo-100 to-indigo-200'
+  }
+]
+
+// 游戏规则配置
+const RULE_ITEMS = [
+  { icon: 'touch_app', text: '连接相邻的文字，组成完整的诗句', color: 'text-blue-500' },
+  { icon: 'timer', text: '完成一首诗后自动进入下一首', color: 'text-purple-500' },
+  { icon: 'save', text: '游戏进度会自动保存', color: 'text-indigo-500' }
+]
 
 export default function Home() {
   const router = useRouter()
@@ -35,91 +71,68 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white px-4 py-8 sm:py-12">
-      <div className="mx-auto max-w-4xl">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-blue-100 p-4 sm:p-6 md:p-8">
+      <div className="w-full max-w-5xl space-y-16">
         {/* 标题区域 */}
-        <div className="mb-12 text-center">
-          <h1 className="mb-4 text-4xl font-bold text-blue-600 sm:text-5xl">古诗词连连看</h1>
-          <p className="text-lg text-gray-600">探索中国传统文化的趣味游戏</p>
+        <div className="text-center">
+          <h1 className="mb-4 text-5xl font-extrabold text-gray-800 sm:text-6xl md:text-7xl">
+            古诗词连连看
+          </h1>
+          <p className="text-lg text-gray-600 sm:text-xl">
+            探索中国传统文化的趣味游戏
+          </p>
         </div>
 
         {/* 游戏介绍 */}
-        <div className="mb-12 rounded-xl bg-white p-6 shadow-lg sm:p-8">
-          <h2 className="mb-6 text-center text-2xl font-semibold text-gray-800">游戏介绍</h2>
-          <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3">
-            <div className="rounded-xl bg-gradient-to-br from-blue-50 p-4 transition-transform hover:scale-105">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="material-icons text-2xl text-blue-500">school</span>
-                <h3 className="font-semibold text-gray-800">寓教于乐</h3>
+        <div className="space-y-8">
+          <h2 className="text-center text-3xl font-bold text-gray-800">
+            游戏介绍
+          </h2>
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+            {INFO_CARDS.map(card => (
+              <div
+                key={card.title}
+                className="transform rounded-2xl bg-white/50 p-6 shadow-lg transition-transform hover:scale-105 hover:shadow-xl backdrop-blur-sm"
+              >
+                <div className={`mb-4 inline-block rounded-full bg-gradient-to-r ${card.gradient} p-3`}>
+                  <span className="material-icons text-3xl text-white">{card.icon}</span>
+                </div>
+                <h3 className="mb-2 text-xl font-semibold text-gray-800">{card.title}</h3>
+                <p className="text-gray-600">{card.description}</p>
               </div>
-              <p className="text-sm text-gray-600">
-                通过趣味游戏方式，轻松记忆古诗词，提升文学素养
-              </p>
-            </div>
-            <div className="rounded-xl bg-gradient-to-br from-purple-50 p-4 transition-transform hover:scale-105">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="material-icons text-2xl text-purple-500">psychology</span>
-                <h3 className="font-semibold text-gray-800">智力挑战</h3>
-              </div>
-              <p className="text-sm text-gray-600">
-                考验记忆力和观察力，培养逻辑思维能力
-              </p>
-            </div>
-            <div className="rounded-xl bg-gradient-to-br from-indigo-50 p-4 transition-transform hover:scale-105">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="material-icons text-2xl text-indigo-500">emoji_events</span>
-                <h3 className="font-semibold text-gray-800">关卡进阶</h3>
-              </div>
-              <p className="text-sm text-gray-600">
-                从易到难的关卡设计，循序渐进提升学习兴趣
-              </p>
-            </div>
+            ))}
           </div>
         </div>
 
         {/* 难度选择 */}
-        <div className="mb-8">
-          <h2 className="mb-6 text-center text-2xl font-semibold text-gray-800">选择难度</h2>
-          <div className="grid gap-6 sm:grid-cols-3">
+        <div className="space-y-8">
+          <h2 className="text-center text-3xl font-bold text-gray-800">选择难度</h2>
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
             {Object.entries(LEVEL_CONFIGS).map(([level, config]) => (
               <button
                 key={level}
                 onClick={() => handleLevelSelect(level as keyof typeof GAME_CONFIG.LEVELS)}
-                className="group relative overflow-hidden rounded-xl bg-white p-6 shadow-lg transition-all hover:shadow-xl"
+                className={`group relative transform rounded-2xl bg-gradient-to-br ${config.bgColor} p-8 text-white shadow-lg transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl ${config.shadowColor}`}
               >
-                <div className="relative z-10 flex flex-col items-center gap-4">
-                  <span className={`text-2xl ${config.iconColor}`}>
-                    {config.icon}
-                  </span>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-800">{config.name}</h3>
-                    <p className="mt-2 text-sm text-gray-500">
-                      {config.description}
-                    </p>
-                  </div>
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold">{config.name}</h3>
+                  <p className="mt-2 text-sm opacity-80">{config.description}</p>
                 </div>
-                <div className={`absolute inset-0 z-0 bg-gradient-to-br ${config.bgColor} to-transparent opacity-0 transition-opacity group-hover:opacity-100`} />
               </button>
             ))}
           </div>
         </div>
 
         {/* 游戏说明 */}
-        <div className="rounded-xl bg-white p-6 shadow-lg sm:p-8">
-          <h2 className="mb-6 text-center text-2xl font-semibold text-gray-800">游戏说明</h2>
+        <div className="rounded-2xl bg-white/50 p-8 shadow-lg backdrop-blur-sm">
+          <h2 className="mb-6 text-center text-3xl font-bold text-gray-800">游戏说明</h2>
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-lg bg-gradient-to-r from-blue-50 p-3">
-              <span className="material-icons text-2xl text-blue-500">touch_app</span>
-              <span className="text-gray-700">连接相邻的文字，组成完整的诗句</span>
-            </div>
-            <div className="flex items-center gap-3 rounded-lg bg-gradient-to-r from-purple-50 p-3">
-              <span className="material-icons text-2xl text-purple-500">timer</span>
-              <span className="text-gray-700">完成一首诗后自动进入下一首</span>
-            </div>
-            <div className="flex items-center gap-3 rounded-lg bg-gradient-to-r from-indigo-50 p-3">
-              <span className="material-icons text-2xl text-indigo-500">save</span>
-              <span className="text-gray-700">游戏进度会自动保存</span>
-            </div>
+            {RULE_ITEMS.map(rule => (
+              <div key={rule.icon} className="flex items-center gap-4 rounded-lg bg-white/60 p-4">
+                <span className={`material-icons text-3xl ${rule.color}`}>{rule.icon}</span>
+                <span className="text-lg text-gray-700">{rule.text}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

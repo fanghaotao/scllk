@@ -1,99 +1,63 @@
 interface WordCardProps {
   id?: string
   character: string
-  groupId: number
-  orderInGroup: number
   isSelected?: boolean
   isUsed?: boolean
   showHint?: boolean
   showOrder?: boolean
+  orderInGroup?: number
   onMouseDown?: () => void
   onMouseEnter?: () => void
   onTouchStart?: () => void
-  className?: string
 }
 
 const WordCard = ({
   id,
   character,
-  groupId,
-  orderInGroup,
   isSelected = false,
   isUsed = false,
   showHint = false,
   showOrder = false,
+  orderInGroup,
   onMouseDown,
   onMouseEnter,
   onTouchStart,
-  className = ''
 }: WordCardProps) => {
-  // 获取背景颜色
-  const getBackgroundColor = () => {
-    if (isUsed) return 'bg-gray-100'
-    if (isSelected) return 'bg-blue-100'
-    return 'bg-white'
-  }
-
-  // 获取边框样式
-  const getBorderStyle = () => {
-    if (isUsed) return 'border-gray-300'
-    if (isSelected) return 'border-blue-400'
-    return 'border-gray-200 hover:border-blue-300'
-  }
+  const stateClasses = isUsed
+    ? 'bg-gray-200 border-gray-300 text-gray-400 cursor-not-allowed'
+    : isSelected
+    ? 'bg-blue-200 border-blue-400 transform -translate-y-1'
+    : 'bg-white border-gray-300 hover:border-blue-400 hover:-translate-y-1'
 
   return (
     <div
       id={id}
-      className={`relative flex aspect-square cursor-pointer items-center justify-center rounded-lg 
-        border-2 p-2 transition-all duration-200 
-        ${getBackgroundColor()} ${getBorderStyle()} 
-        ${isUsed ? 'cursor-not-allowed opacity-50' : 'hover:scale-105'} 
-        ${className}`}
-      onMouseDown={(e) => {
-        e.preventDefault()
-        onMouseDown?.()
-      }}
+      className={`relative flex aspect-square cursor-pointer items-center justify-center rounded-lg border-b-4 p-1 transition-all duration-150 ${stateClasses}`}
+      onMouseDown={onMouseDown}
       onMouseEnter={onMouseEnter}
-      onTouchStart={(e) => {
-        e.preventDefault()
-        onTouchStart?.()
-      }}
+      onTouchStart={onTouchStart}
     >
-      {/* 主要字符 */}
-      <span className="text-center text-gray-800">{character}</span>
+      <span className="text-2xl font-bold sm:text-3xl md:text-4xl">
+        {character}
+      </span>
 
-      {/* 顺序提示 */}
-      {showOrder && (
-        <div className="absolute left-1 top-1">
-          <span className="text-xs text-gray-500">{orderInGroup + 1}</span>
+      {showOrder && orderInGroup !== undefined && !isUsed && (
+        <div className="absolute left-1 top-0 text-xs font-medium text-gray-400">
+          {orderInGroup + 1}
         </div>
       )}
 
-      {/* 首字提示 */}
-      {showHint && orderInGroup === 0 && (
-        <div className="absolute right-1 top-1">
-          <span className="text-xs text-blue-500">首</span>
+      {showHint && !isUsed && (
+        <div className="absolute right-1 top-0 text-xs font-bold text-blue-500">
+          首
         </div>
       )}
 
-      {/* 已使用标记 */}
       {isUsed && (
-        <div className="absolute right-1 top-1">
-          <span className="text-xs text-green-500">✓</span>
+        <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+          <span className="material-icons text-4xl text-white">check_circle</span>
         </div>
       )}
-
-      {/* 选中状态指示器 */}
-      {isSelected && (
-        <div className="absolute inset-0 rounded-lg border-2 border-blue-400" />
-      )}
-
-      {/* 可访问性支持 */}
-      <div className="sr-only">
-        {`字符 ${character}${showOrder ? `，顺序 ${orderInGroup + 1}` : ''}${
-          showHint ? '，首字' : ''
-        }${isUsed ? '，已使用' : ''}${isSelected ? '，已选中' : ''}`}
-      </div>
     </div>
   )
 }

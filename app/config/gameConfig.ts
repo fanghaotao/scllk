@@ -19,9 +19,13 @@ export const GAME_CONFIG = {
     high: {
       name: '高中',
       totalStages: 40
+    },
+    expert: {
+      name: '专家',
+      totalStages: 50
     }
   } as const
-} 
+}
 
 // 导出类型
 export type GameLevel = keyof typeof GAME_CONFIG.LEVELS; 

@@ -3,8 +3,11 @@ import GameWrapper from '@/app/components/GameWrapper'
 
 export const runtime = 'edge'
 
+import { GAME_CONFIG } from '@/app/config/gameConfig'
+
 type Props = {
   params: {
+    level: keyof typeof GAME_CONFIG.LEVELS
     stageId: string
   }
 }
@@ -12,22 +15,22 @@ type Props = {
 export async function generateMetadata({
   params
 }: Props): Promise<Metadata> {
-  const stageId = await params.stageId
+  const { level, stageId } = params
+  const levelName = GAME_CONFIG.LEVELS[level]?.name || '古诗词'
   return {
-    title: `第 ${stageId} 关 - 小学古诗词`,
-    description: `古诗词连连看游戏第 ${stageId} 关`
+    title: `第 ${stageId} 关 - ${levelName}`,
+    description: `古诗词连连看游戏 - ${levelName}第 ${stageId} 关`
   }
 }
 
 export default async function Page({
   params
 }: Props) {
-  // 等待参数解析
-  const stageId =  params.stageId
+  const { level, stageId } = params
 
   return (
     <GameWrapper 
-      level="elementary"
+      level={level}
       stageId={parseInt(stageId, 10)} 
     />
   )
